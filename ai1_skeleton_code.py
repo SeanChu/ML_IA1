@@ -1,8 +1,8 @@
+#!/usr/bin/env python
 # CS 534
 # AI1 skeleton code
-# By Quintin Pope
+# By Sean Chu
 import csv
-import copy
 import numpy
 import numpy as np
 import matplotlib.pyplot as plt
@@ -30,6 +30,9 @@ def preprocess_data(data, normalize, drop_sqrt_living15):
     #preprocessed_data[0][14] = 'age_since_renovated'
     preprocessed_data.pop(0)
 
+    if drop_sqrt_living15:
+        preprocessed_data = modify_features(preprocessed_data)
+
     for i in range(len(preprocessed_data)):
         year = float(preprocessed_data[i][1].split('/')[2])
         month = float(preprocessed_data[i][1].split('/')[0])
@@ -39,8 +42,9 @@ def preprocess_data(data, normalize, drop_sqrt_living15):
         preprocessed_data[i] = [float(n) for n in preprocessed_data[i]]
         #print(preprocessed_data[i])
 
-    if not normalize:
-        preprocessed_data = numpy.matrix(preprocessed_data)
+    preprocessed_data = numpy.matrix(preprocessed_data)
+
+    if normalize:
         preprocessed_data = preprocessed_data.transpose()
         a = numpy.matrix([[15, 31], [2, 6], [1, 3]])
         #a[0] = [d+1 for d in a[0]]
@@ -48,22 +52,31 @@ def preprocess_data(data, normalize, drop_sqrt_living15):
 
         if not means:
             for i in range(preprocessed_data.shape[0]):
-                if i != 0 and i != 9 and i != 22:
+                if not drop_sqrt_living15 and (i != 0 and i != 9 and i != 22):
                     means.append(numpy.mean(preprocessed_data[i]))
                     stds.append(numpy.std(preprocessed_data[i]))
-                    print(means[-1], stds[-1])
+                    #print(means[-1], stds[-1])
+
+                elif drop_sqrt_living15 and (i != 0 and i != 9 and i != 21):
+                    means.append(numpy.mean(preprocessed_data[i]))
+                    stds.append(numpy.std(preprocessed_data[i]))
 
                 else:
                     means.append('blank')
                     stds.append('blank')
 
         for i in range(preprocessed_data.shape[0]):
-            if i != 0 and i != 9 and i != 22:
+            if not drop_sqrt_living15 and (i != 0 and i != 9 and i != 22):
+                for j in range(preprocessed_data[i].shape[1]):
+                    preprocessed_data[i, j] = (preprocessed_data[i, j] - means[i]) / stds[i]
+
+            elif drop_sqrt_living15 and (i != 0 and i != 9 and i != 21):
                 for j in range(preprocessed_data[i].shape[1]):
                     preprocessed_data[i, j] = (preprocessed_data[i, j] - means[i]) / stds[i]
 
         preprocessed_data = preprocessed_data.transpose()
-        print(preprocessed_data[0])
+
+    print(preprocessed_data[0])
 
     return preprocessed_data
 
@@ -72,6 +85,10 @@ def preprocess_data(data, normalize, drop_sqrt_living15):
 # approaches are / aren't active.
 def modify_features(data):
     # Your code here:
+    modified_data = list()
+
+    for i in range(len(data)):
+        modified_data.append(data[i][0:19] + data[i][20:])
 
     return modified_data
 
@@ -99,10 +116,12 @@ def gd_train(data, labels, lr):
 
         if len(losses) > 1 and (loss - losses[-2] >= 0. or abs(loss - losses[-2]) <= criteria):
             print(count + 1, weights, loss, sep='\n')
-            break
+            return weights, losses
 
         m = np.matrix(np.zeros(data.shape[1]))
         loss = 0.
+
+    print(4000, weights, losses[-1], sep='\n')
 
     return weights, losses
 
@@ -127,12 +146,50 @@ def plot_losses(losses):
 training_data = load_data('IA1_train.csv')
 valid_data = load_data('IA1_dev.csv')
 
-processed_tr_da = preprocess_data(training_data, False, False)
-processed_vl_da = preprocess_data(valid_data, False, False)
+processed_tr_da = preprocess_data(training_data, True, False)
+processed_vl_da = preprocess_data(valid_data, True, False)
 a = np.matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
 print(a[:, -1])
 # Part 1 . Implement batch gradient descent and experiment with different learning rates.
-# Your code here:
+# Your code here:''''''
+weights, losses = gd_train(processed_tr_da[:, :processed_tr_da.shape[1] - 1], processed_tr_da[:, -1], 0.1)
+#print(losses)
+plot_losses(losses)
+
+mse = 0.
+w_pro_vl_da = processed_vl_da[:, :processed_vl_da.shape[1] - 1]
+y_pro_vl_da = processed_vl_da[:, -1]
+
+for i in range(w_pro_vl_da.shape[0]):
+    mse += (weights * w_pro_vl_da[i].T - y_pro_vl_da[i])[0, 0] ** 2
+
+mse /= w_pro_vl_da.shape[0]
+print(mse)
+means.clear()
+stds.clear()
+
+
+# Part 2 a. Training and experimenting with non-normalized data.
+# Your code here:''''''
+processed_tr_da = preprocess_data(training_data, False, False)
+processed_vl_da = preprocess_data(valid_data, False, False)
+weights, losses = gd_train(processed_tr_da[:, :processed_tr_da.shape[1] - 1], processed_tr_da[:, -1], 10**-11)
+plot_losses(losses)
+mse = 0.
+w_pro_vl_da = processed_vl_da[:, :processed_vl_da.shape[1] - 1]
+y_pro_vl_da = processed_vl_da[:, -1]
+
+for i in range(w_pro_vl_da.shape[0]):
+    mse += (weights * w_pro_vl_da[i].T - y_pro_vl_da[i])[0, 0] ** 2
+
+mse /= w_pro_vl_da.shape[0]
+print(mse)
+
+
+# Part 2 b Training with redundant feature removed. 
+# Your code here:''''''
+processed_tr_da = preprocess_data(training_data, True, True)
+processed_vl_da = preprocess_data(valid_data, True, True)
 weights, losses = gd_train(processed_tr_da[:, :processed_tr_da.shape[1] - 1], processed_tr_da[:, -1], 0.0001)
 #print(losses)
 plot_losses(losses)
@@ -146,14 +203,5 @@ for i in range(w_pro_vl_da.shape[0]):
 
 mse /= w_pro_vl_da.shape[0]
 print(mse)
-
-
-# Part 2 a. Training and experimenting with non-normalized data.
-# Your code here:
-
-
-# Part 2 b Training with redundant feature removed. 
-# Your code here:
-
-
-
+means.clear()
+stds.clear()
